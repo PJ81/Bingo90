@@ -32,17 +32,6 @@ namespace Bingo90 {
             return f;
         }
 
-        public void printGrid() {
-            for (int j = 0; j < grid.GetLength(1); j++) {
-                for (int i = 0; i < grid.GetLength(0); i++) {
-                    Console.Write($"{grid[i, j].ToString("D2")}, ");
-                }
-                Console.WriteLine();
-            }
-            Console.WriteLine(count);
-            Console.WriteLine();
-        }
-
     }
 
     public class Bingo90 {
@@ -215,9 +204,13 @@ namespace Bingo90 {
                 card[grid].set(col_row.Item1, col_row.Item2, chooseNumber(setC[col_row.Item1 - 1]));
                 count--;
             }
+
+            rearrangeRows(rand);
+            sortColumns();
+            calcHash();
         }
 
-        public void rearrangeRows(Random rand) {
+        private void rearrangeRows(Random rand) {
 
             int c = 0, r = 0, i;
             bool found = true;
@@ -251,9 +244,9 @@ namespace Bingo90 {
 
         }
 
-        public void sortColumns() {
-            int tmp;
+        private void sortColumns() {
 
+            int tmp;
             bool swap(int v, int r, int a, int b) {
 
                 if (card[v].grid[r, b] == 0 || card[v].grid[r, b] == 0) return false;
@@ -280,13 +273,33 @@ namespace Bingo90 {
             }
         }
 
-        public void printCard() {
-            for(int j = 0; j < card.Length; j++) {
-                card[j].printGrid();
+        public bool isValid() {
+
+            int r = 0, u, l;
+            
+            for(int d = 0; d < 6; d++) {
+                int[] cols = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+
+                for (int t = 0; t < 3; t++) {
+                    l = 0;
+                    for(int z = 0; z < 9; z++) {
+                        u = card[d].grid[z, t];
+                        if (u > 0) {
+                            l++;
+                            cols[z]++;
+                        }
+                        r += u;
+                    }
+                    if (l != 5) return false;
+                }
+
+                if (cols.Contains(0)) return false;
             }
+
+            return r == 4095;
         }
 
-        public void calcHash() {
+        private void calcHash() {
 
             byte[] getHash(string str) {
                 using (HashAlgorithm algorithm = HMACSHA1.Create())
@@ -308,7 +321,7 @@ namespace Bingo90 {
 
     class Program {
 
-        static Bingo90[] bingoCard;
+        static List<Bingo90> bingoCard = new List<Bingo90>();
         static Random rand = new Random();
 
         private static void createPDF() {
@@ -316,21 +329,42 @@ namespace Bingo90 {
             PdfDocument document = new PdfDocument();
             document.Info.Title = "Bingo90Cards";
 
-            XUnitPt REC_SIZE = 26, MARGIN = 2, BIG_RECT_MARGIN = 4, TOT_WID = REC_SIZE * 9 + 10 * MARGIN, TOT_HEI = REC_SIZE * 3 + 4 * MARGIN;
+            XColor[] colorsL = {
+                XColor.FromArgb(255, 228, 3, 3), 
+                XColor.FromArgb(255, 255, 140, 0), 
+                XColor.FromArgb(255, 217, 202, 0), 
+                XColor.FromArgb(255, 0, 128, 38), 
+                XColor.FromArgb(255, 0, 77, 255), 
+                XColor.FromArgb(255, 117, 7, 135), 
+            };
 
+            XColor[] colorsD = {
+                XColor.FromArgb(255, 135, 0, 0),
+                XColor.FromArgb(255, 169, 51, 0),
+                XColor.FromArgb(255, 144, 123, 0),
+                XColor.FromArgb(255, 0, 42, 4),
+                XColor.FromArgb(255, 0, 15, 169),
+                XColor.FromArgb(255, 36, 0, 47)
+            };
+
+            XColor[] colorsDD = {
+                XColor.FromArgb(255, 46, 0, 0),
+                XColor.FromArgb(255, 112, 10, 0),
+                XColor.FromArgb(255, 87, 64, 0),//XColor.FromArgb(255, 95, 70, 0),
+                XColor.FromArgb(255, 0, 16, 0),
+                XColor.FromArgb(255, 0, 1, 112),
+                XColor.FromArgb(255, 20, 0, 24)
+            };
+
+            XUnitPt REC_SIZE = 26, MARGIN = 2, BIG_RECT_MARGIN = 4, TOT_WID = REC_SIZE * 9 + 10 * MARGIN, TOT_HEI = REC_SIZE * 3 + 4 * MARGIN;
             XFont font = new XFont("verdana", REC_SIZE / 2);
             XFont fontN = new XFont("verdana", REC_SIZE * 1.5, XFontStyleEx.Bold);
-            XFont fontS = new XFont("verdana", REC_SIZE * .3);
-            XBrush xbr = new XSolidBrush(XColor.FromArgb(128, 15, 159, 255));
-            XBrush nul = new XSolidBrush(XColor.FromArgb(128, 200, 200, 200));
-            XPen xpn = new XPen(XColor.FromArgb(255, 6, 64, 102), 2);
+            XBrush nul = new XSolidBrush(XColor.FromArgb(128, 220, 220, 220));
             XPen npn = new XPen(XColor.FromArgb(128, 160, 160, 160), 1);
-            XPen bpn = new XPen(XColor.FromArgb(255, 8, 80, 128), 1);
-
-
             XUnitPt startX, startY;
+            string bng = " * B I N G O  9 0 * ";
 
-            int pageCount = (int)Math.Ceiling((double)(bingoCard.Length / 2.0)),
+            int pageCount = (int)Math.Ceiling((double)(bingoCard.Count / 2.0)),
                 idx, crd_idx = 0;
 
             for (int page = 0; page < pageCount; page++) {
@@ -338,11 +372,16 @@ namespace Bingo90 {
                 document.AddPage();
                 XGraphics gfx = XGraphics.FromPdfPage(document.Pages[document.Pages.Count - 1]);
 
-                gfx.DrawString("* B I N G O  9 0 *", fontN, XBrushes.Black, new XRect(0, 30, gfx.PageSize.Width, 80), XStringFormats.Center);
+                XSize sw = gfx.MeasureString(bng, fontN);
+                XUnitPt l = gfx.PageSize.Width / 2 - sw.Width / 2;
+                XRect tr = new XRect(l, 60, sw.Width, sw.Height);
+
+                gfx.DrawRoundedRectangle(new XPen(colorsDD[4], 2), tr, new XSize(2, 2));
+                gfx.DrawString(bng, fontN, new XSolidBrush(colorsDD[4]), tr, XStringFormats.Center);
 
                 for (int crd = crd_idx; crd < crd_idx + 2; crd++) {
 
-                    if (crd >= bingoCard.Length) continue;
+                    if (crd >= bingoCard.Count) continue;
 
                     // output card
                     Bingo90 sheet = bingoCard[crd];
@@ -350,11 +389,16 @@ namespace Bingo90 {
                     for (int h = 0; h < 2; h++) {
 
                         startX = 30 + h * 280;
-                        startY = 140 + 350 * (crd % 2);
+                        startY = 150 + 350 * (crd % 2);
 
                         for (int g = 0; g < 3; g++) {
 
                             idx = g + h * 3;
+
+                            XBrush xbr = new XSolidBrush(colorsL[idx]);
+                            XBrush xbw = new XSolidBrush(colorsDD[idx]);
+                            XPen xpn = new XPen(colorsD[idx], 2);
+                            XPen bpn = new XPen(colorsD[idx], 1);
 
                             for (int r = 0; r < 3; r++) {
                                 for (int c = 0; c < 9; c++) {
@@ -368,7 +412,7 @@ namespace Bingo90 {
                                     } else {
                                         gfx.DrawRoundedRectangle(xbr, rect, new XSize(2, 2));
                                         gfx.DrawRoundedRectangle(bpn, rect, new XSize(2, 2));
-                                        gfx.DrawString(sheet.card[idx].grid[c, r].ToString(), font, XBrushes.Black, rect, XStringFormats.Center);
+                                        gfx.DrawString(sheet.card[idx].grid[c, r].ToString(), font, xbw, rect, XStringFormats.Center);
                                     }
                                     
                                 }
@@ -390,23 +434,33 @@ namespace Bingo90 {
         }
 
         static void Main(string[] args) {
-            const int cnt = 9;
+            const int cnt = 20;
 
-            bingoCard = new Bingo90[cnt];
+            Bingo90 card, f;
 
             for (int x = 0; x < cnt; x++) {
-                bingoCard[x] = new Bingo90();
-                bingoCard[x].createCard(rand);
-                bingoCard[x].rearrangeRows(rand);
-                bingoCard[x].sortColumns();
-                bingoCard[x].calcHash();
-                Console.Write(bingoCard[x].hash);
-                Console.WriteLine(bingoCard[x].error > 0 ? $" - Error grid {bingoCard[x].error}" : "");
+
+                while (true) {
+
+                    card = new Bingo90();
+                    card.createCard(rand);
+                    
+                    f = bingoCard.Find(c => c.hash == card.hash);
+
+                    if (f == null && card.isValid()) {
+                        bingoCard.Add(card);
+                        Console.Write(card.hash);
+                        Console.WriteLine(card.error > 0 ? $" - Grid {card.error} was edited!" : card.error < 0 ? $" - Grid {card.error} not all numbers!" : "");
+                        break;
+                    }
+                }
             }
+
+            if (bingoCard.Count < 1) return;
 
             createPDF();
 
-            //Console.ReadKey();
+            Console.ReadKey();
         }
     }
 }
